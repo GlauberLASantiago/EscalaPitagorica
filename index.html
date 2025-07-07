@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escala Pitagórica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Paleta de Cores: #BCDFB9, #C87F8B, #E9A97F, #E7F0C7, #000000, #FFFFFF */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #E7F0C7; /* Fundo geral */
+            color: #000000;
+        }
+        .control-button {
+            transition: all 0.2s ease-in-out;
+            background-color: #E9A97F; /* Cor do botão */
+            color: #000000;
+            font-weight: 500;
+        }
+        .control-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .control-button:active {
+            transform: scale(0.98);
+        }
+        .info-block {
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 1px solid #BCDFB9;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .calculation-text {
+            word-break: break-all;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        /* Estilos para o slider mais grosso */
+        .custom-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            cursor: pointer;
+            outline: none;
+            border-radius: 8px;
+            background: #BCDFB9; /* Cor da barra */
+            height: 12px; /* Espessura da barra */
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 24px; /* Tamanho do seletor */
+            width: 24px;  /* Tamanho do seletor */
+            background-color: #C87F8B; /* Cor do seletor */
+            border-radius: 50%;
+            border: none;
+            transition: 0.2s ease-in-out;
+        }
+
+        .custom-slider::-moz-range-thumb {
+            height: 24px;
+            width: 24px;
+            background-color: #C87F8B;
+            border-radius: 50%;
+            border: none;
+            transition: 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold" style="color: #C87F8B;">Escala Pitagórica</h1>
+            <p class="text-gray-800 mt-2">Veja como as notas se relacionam através de frações e comprimentos de corda.</p>
+        </header>
+
+        <main>
+            <!-- Canvas para visualização do monocórdio -->
+            <div class="bg-gray-50 rounded-xl p-4 mb-6 border-2" style="border-color: #BCDFB9;">
+                <canvas id="monochordCanvas" class="w-full"></canvas>
+            </div>
+
+            <!-- Controles e Informações -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <!-- Controles -->
+                <div class="bg-gray-50 rounded-xl p-6" style="background-color: #E7F0C7;">
+                    <label for="fifthsSlider" class="block text-lg font-medium mb-2">Navegue pelo Círculo de Quintas:</label>
+                    <input id="fifthsSlider" type="range" min="0" max="12" value="0" class="custom-slider">
+                    <div class="flex justify-between text-sm text-gray-700 mt-2">
+                        <span>Dó (Início)</span>
+                        <span>Ciclo de Quintas</span>
+                    </div>
+
+                    <div class="flex justify-center space-x-4 mt-8">
+                        <button id="playReferenceBtn" class="control-button py-2 px-6 rounded-lg shadow-md">
+                            Ouvir Dó (Referência)
+                        </button>
+                        <button id="playCurrentBtn" class="control-button py-2 px-6 rounded-lg shadow-md">
+                            Ouvir Nota Atual
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Painel de Informações -->
+                <div id="infoPanel" class="rounded-xl p-6 space-y-4" style="background-color: #BCDFB9;">
+                    <h2 class="text-2xl font-bold text-center" id="noteName" style="color: #C87F8B;">Nota: Dó</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Coluna da Frequência -->
+                        <div>
+                            <h3 class="text-lg font-semibold">Frequência</h3>
+                            <div class="info-block">
+                                <p class="text-sm">Cálculo Bruto:</p>
+                                <p class="font-mono calculation-text" id="rawFreqCalcText">-</p>
+                                <p class="text-sm mt-2">Razão Bruta:</p>
+                                <p class="text-lg font-mono" id="rawFreqRatio">1/1</p>
+                                <p class="text-sm mt-2">Ajuste de Oitava:</p>
+                                <p class="text-lg font-mono" id="octaveFreqCalc">-</p>
+                                <p class="text-sm mt-2">Razão Final:</p>
+                                <p class="text-lg font-mono" id="finalFreqRatio">1/1 ≈ 1.000</p>
+                            </div>
+                        </div>
+                        <!-- Coluna do Comprimento de Onda/Corda -->
+                        <div>
+                            <h3 class="text-lg font-semibold">Comp. da Corda</h3>
+                             <div class="info-block">
+                                <p class="text-sm">Cálculo Bruto:</p>
+                                <p class="font-mono calculation-text" id="rawWaveCalcText">-</p>
+                                <p class="text-sm mt-2">Razão Bruta:</p>
+                                <p class="text-lg font-mono" id="rawWaveRatio">1/1</p>
+                                <p class="text-sm mt-2">Ajuste de Oitava:</p>
+                                <p class="text-lg font-mono" id="octaveWaveCalc">-</p>
+                                <p class="text-sm mt-2">Razão Final:</p>
+                                <p class="text-lg font-mono" id="finalWaveRatio">1/1 ≈ 1.000</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explicações -->
+            <div class="mt-8 bg-white p-6 rounded-xl border">
+                <h3 class="text-xl font-bold mb-2 text-gray-700">O que os Cálculos Mostram?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Começamos com a nota <strong>Dó</strong> como nossa referência (razão 1/1). Use o controle deslizante para avançar no círculo de quintas. Cada passo multiplica a <strong>frequência</strong> por <strong>3/2</strong>. Como o comprimento da corda é o inverso da frequência, ele é multiplicado pela fração inversa, <strong>2/3</strong>. O painel de informações mostra esse cálculo. Quando a razão de frequência ultrapassa 2 (uma oitava acima), ela é dividida por 2 para trazê-la de volta à oitava original, como mostrado no "Ajuste de Oitava". O comprimento da corda faz a operação inversa.
+                </p>
+            </div>
+
+            <div class="mt-8 bg-white p-6 rounded-xl border">
+                <h3 class="text-xl font-bold mb-2" style="color: #C87F8B;">Como se calculava isto na Antiguidade?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Na Grécia Antiga, os seguidores de Pitágoras não tinham calculadoras para lidar com frações complexas ou números decimais. O processo era muito mais físico e engenhoso, baseado em geometria e na observação direta no monocórdio.
+                </p>
+                <br>
+                <p class="text-gray-600 leading-relaxed">
+                    <strong>1. O Foco era em Razões Simples:</strong> A beleza do sistema estava em usar apenas os números inteiros mais simples. Para encontrar uma <strong>quinta (Sol)</strong>, eles não calculavam "comprimento × 0.666...". Em vez disso, pegavam a corda, dividiam-na fisicamente em <strong>três</strong> partes iguais e colocavam o cavalete na marca do <strong>segundo</strong> terço. O resultado era uma corda com <strong>2/3</strong> do comprimento original.
+                </p>
+                <br>
+                <p class="text-gray-600 leading-relaxed">
+                    <strong>2. Dobrar para Ajustar a Oitava:</strong> E quando os números ficavam grandes, como na nota <strong>Ré</strong> (razão bruta 4/9)? Eles aplicavam o mesmo processo: pegavam a razão da nota anterior (Sol, 2/3) e encontravam 2/3 *desse comprimento*. O resultado era uma corda com 4/9 do comprimento total. Ao ouvir, percebiam que o som era muito agudo (tinha "saltado" uma oitava). Para trazê-lo de volta à oitava principal, eles simplesmente <strong>dobravam o comprimento</strong> dessa pequena corda (4/9 × 2 = 8/9). Este ato físico de dobrar o comprimento é o que o nosso "Ajuste de Oitava" representa.
+                </p>
+                <br>
+                <p class="text-gray-600 leading-relaxed">
+                    Portanto, a dificuldade não estava no cálculo matemático, que se resumia a marcar e medir, mas sim na <strong>precisão manual</strong> necessária para dividir a corda de forma exata e obter uma afinação perfeita. Era um casamento entre matemática e artesanato.
+                </p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- SETUP INICIAL ---
+            const canvas = document.getElementById('monochordCanvas');
+            const ctx = canvas.getContext('2d');
+            const slider = document.getElementById('fifthsSlider');
+            
+            // Elementos de Informação
+            const noteNameEl = document.getElementById('noteName');
+            const rawFreqCalcTextEl = document.getElementById('rawFreqCalcText');
+            const rawFreqRatioEl = document.getElementById('rawFreqRatio');
+            const octaveFreqCalcEl = document.getElementById('octaveFreqCalc');
+            const finalFreqRatioEl = document.getElementById('finalFreqRatio');
+            const rawWaveCalcTextEl = document.getElementById('rawWaveCalcText');
+            const rawWaveRatioEl = document.getElementById('rawWaveRatio');
+            const octaveWaveCalcEl = document.getElementById('octaveWaveCalc');
+            const finalWaveRatioEl = document.getElementById('finalWaveRatio');
+
+            const playReferenceBtn = document.getElementById('playReferenceBtn');
+            const playCurrentBtn = document.getElementById('playCurrentBtn');
+
+            const BASE_FREQ = 261.63;
+            const NOTE_NAMES = ['Dó', 'Sol', 'Ré', 'Lá', 'Mi', 'Si', 'Fá#', 'Dó#', 'Sol#', 'Ré#', 'Lá#', 'Fá', 'Dó'];
+
+            let currentNote = { name: 'Dó', freq: BASE_FREQ, waveRatio: 1 };
+
+            const synth = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.5 }
+            }).toDestination();
+
+            // --- FUNÇÕES ---
+
+            /**
+             * Desenha um cavalete (ponte) do monocórdio.
+             * @param {CanvasRenderingContext2D} ctx - O contexto do canvas.
+             * @param {number} x - A posição X do centro do cavalete.
+             * @param {number} stringY - A posição Y da corda.
+             * @param {number} size - A altura do cavalete.
+             * @param {string} color - A cor do cavalete.
+             */
+            function drawBridge(ctx, x, stringY, size, color = '#000000') {
+                const halfWidth = size / 2;
+                ctx.beginPath();
+                ctx.moveTo(x - halfWidth, stringY + 2); // Canto superior esquerdo
+                ctx.lineTo(x + halfWidth, stringY + 2); // Canto superior direito
+                ctx.lineTo(x, stringY + size); // Ponta inferior
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+
+            function redrawCanvas() {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * dpr;
+                canvas.height = 100 * dpr;
+                ctx.scale(dpr, dpr);
+                canvas.style.height = '100px';
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const width = canvas.width / dpr;
+                const height = canvas.height / dpr;
+                const stringY = height / 2;
+                const bridgeSize = 20;
+                const margin = bridgeSize;
+                const stringLength = width - 2 * margin;
+
+                // Desenha a corda inteira (parte não vibrante)
+                ctx.beginPath();
+                ctx.moveTo(margin, stringY);
+                ctx.lineTo(width - margin, stringY);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Desenha a marca da oitava (1/2)
+                const octaveX = margin + stringLength * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(octaveX, stringY - 8);
+                ctx.lineTo(octaveX, stringY + 8);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.font = '10px Inter';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.textAlign = 'center';
+                ctx.fillText('1/2', octaveX, stringY - 12);
+
+                // Calcula a posição do cavalete móvel
+                const bridgeX = margin + stringLength * currentNote.waveRatio;
+
+                // Desenha a parte vibrante da corda
+                ctx.beginPath();
+                ctx.moveTo(margin, stringY);
+                ctx.lineTo(bridgeX, stringY);
+                ctx.strokeStyle = '#C87F8B'; // Cor de destaque
+                ctx.lineWidth = 4; // Mais grossa
+                ctx.stroke();
+
+                // Desenha os cavaletes
+                drawBridge(ctx, margin, stringY, bridgeSize, 'rgba(0, 0, 0, 0.8)'); // Fixo inicial
+                drawBridge(ctx, bridgeX, stringY, bridgeSize, '#C87F8B'); // Móvel
+            }
+
+            function updateNote(steps) {
+                // 1. Calcula as razões brutas e a string de cálculo
+                let rawFreq = { num: 3 ** steps, den: 2 ** steps };
+                let rawWave = { num: 2 ** steps, den: 3 ** steps };
+                
+                let rawFreqCalcStr = steps > 0 ? Array(steps).fill('(3/2)').join(' × ') : '-';
+                let rawWaveCalcStr = steps > 0 ? Array(steps).fill('(2/3)').join(' × ') : '-';
+
+                // 2. Normaliza para a primeira oitava
+                let normFreq = { ...rawFreq };
+                let normWave = { ...rawWave };
+                
+                let freqAdjustCalc = `(${rawFreq.num}/${rawFreq.den})`;
+                let waveAdjustCalc = `(${rawWave.num}/${rawWave.den})`;
+                let hasAdjustment = false;
+
+                while (normFreq.num / normFreq.den >= 2) {
+                    freqAdjustCalc += ' ÷ 2';
+                    waveAdjustCalc += ' × 2';
+                    normFreq.den *= 2;
+                    normWave.num *= 2;
+                    hasAdjustment = true;
+                }
+                while (normFreq.num / normFreq.den < 1 && steps > 0) {
+                    freqAdjustCalc += ' × 2';
+                    waveAdjustCalc += ' ÷ 2';
+                    normFreq.num *= 2;
+                    normWave.den *= 2;
+                    hasAdjustment = true;
+                }
+
+                currentNote.name = NOTE_NAMES[steps];
+                currentNote.freq = BASE_FREQ * (normFreq.num / normFreq.den);
+                currentNote.waveRatio = normWave.num / normWave.den; // Armazena a razão final do comprimento
+
+                updateUI(rawFreq, normFreq, freqAdjustCalc, rawWave, normWave, waveAdjustCalc, hasAdjustment, rawFreqCalcStr, rawWaveCalcStr);
+                redrawCanvas();
+            }
+
+            function updateUI(rawFreq, normFreq, freqAdjustCalc, rawWave, normWave, waveAdjustCalc, hasAdjustment, rawFreqCalcStr, rawWaveCalcStr) {
+                noteNameEl.textContent = `Nota: ${currentNote.name}`;
+
+                // Frequência
+                rawFreqCalcTextEl.textContent = rawFreqCalcStr;
+                rawFreqRatioEl.textContent = `${rawFreq.num}/${rawFreq.den}`;
+                octaveFreqCalcEl.textContent = hasAdjustment ? freqAdjustCalc : '-';
+                finalFreqRatioEl.textContent = `${normFreq.num}/${normFreq.den} ≈ ${(normFreq.num / normFreq.den).toFixed(3)}`;
+
+                // Comprimento de Onda/Corda
+                rawWaveCalcTextEl.textContent = rawWaveCalcStr;
+                rawWaveRatioEl.textContent = `${rawWave.num}/${rawWave.den}`;
+                octaveWaveCalcEl.textContent = hasAdjustment ? waveAdjustCalc : '-';
+                finalWaveRatioEl.textContent = `${normWave.num}/${normWave.den} ≈ ${(normWave.num / normWave.den).toFixed(3)}`;
+            }
+
+            // --- EVENT LISTENERS ---
+            slider.addEventListener('input', (e) => updateNote(parseInt(e.target.value, 10)));
+            playReferenceBtn.addEventListener('click', () => { Tone.start(); synth.triggerAttackRelease(BASE_FREQ, '8n'); });
+            playCurrentBtn.addEventListener('click', () => { Tone.start(); synth.triggerAttackRelease(currentNote.freq, '8n'); });
+            window.addEventListener('resize', redrawCanvas);
+
+            // --- INICIALIZAÇÃO ---
+            updateNote(0);
+        });
+    </script>
+</body>
+</html>
